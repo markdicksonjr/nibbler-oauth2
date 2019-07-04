@@ -15,9 +15,10 @@ import (
 type Extension struct {
 	nibbler.Extension
 
-	app     *nibbler.Application
-	manager *manage.Manager
-	server  *server.Server
+	app         *nibbler.Application
+	clientStore *store.ClientStore
+	manager     *manage.Manager
+	server      *server.Server
 }
 
 func (s *Extension) Init(app *nibbler.Application) error {
@@ -28,16 +29,8 @@ func (s *Extension) Init(app *nibbler.Application) error {
 	s.manager.MustTokenStorage(store.NewMemoryTokenStore())
 
 	// client memory store (TODO: allow configuration)
-	clientStore := store.NewClientStore()
-	s.manager.MapClientStorage(clientStore)
-
-	// TODO: remove and have way to do this elsewhere
-	clientStore.Set("000000", &models.Client{
-		ID:     "000000",
-		Secret: "999999",
-		Domain: "http://localhost",
-	})
-
+	s.clientStore = store.NewClientStore()
+	s.manager.MapClientStorage(s.clientStore)
 	s.server = server.NewDefaultServer(s.manager)
 	s.server.SetAllowGetAccessRequest(true)
 	s.server.SetClientInfoHandler(server.ClientFormHandler)
@@ -119,4 +112,8 @@ func (s *Extension) ValidateToken(token string) (bool, error) {
 	} else {
 		return info != nil && info.GetCodeExpiresIn().Seconds() > 0, nil // todo: additional checks?
 	}
+}
+
+func (s *Extension) SetClientInfo(id string, client models.Client) error {
+	return s.clientStore.Set(id, &client)
 }
