@@ -4,6 +4,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx"
 	"github.com/markdicksonjr/nibbler"
+	"github.com/markdicksonjr/nibbler/database/sql"
 	pg "github.com/vgarvardt/go-oauth2-pg"
 	"github.com/vgarvardt/go-pg-adapter/pgxadapter"
 	"gopkg.in/go-oauth2/mysql.v3"
@@ -14,6 +15,7 @@ import (
 	"gopkg.in/oauth2.v3/store"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -21,8 +23,7 @@ import (
 type Extension struct {
 	nibbler.Extension
 
-	SqlUrl      string // optional - falls back to mem if not provided
-	PostgresUrl string // TODO
+	SqlExtension *sql.Extension // optional - falls back to mem if not provided
 	app         *nibbler.Application
 	clientStore *store.ClientStore
 	manager     *manage.Manager
@@ -35,31 +36,54 @@ func (s *Extension) Init(app *nibbler.Application) error {
 	s.app = app
 	s.manager = manage.NewDefaultManager()
 
-	if s.SqlUrl != "" {
-		tokenStore := mysql.NewDefaultStore(
-			mysql.NewConfig(s.SqlUrl), // e.g. "root:123456@tcp(127.0.0.1:3306)/myapp_test?charset=utf8"
-		)
-		s.manager.MapTokenStorage(tokenStore)
-		s.clientStore = store.NewClientStore()
-		s.manager.MapClientStorage(s.clientStore)
+	if s.SqlExtension != nil {
+		config := s.SqlExtension.GetConfiguration()
+		if config.Scheme == "mysql" {
+			url := url.URL{
+				Scheme: config.Scheme,
+				Path: config.Path,
+				Host: config.Host,
+				User: url.UserPassword(config.Username, *config.Password),
+				RawQuery: config.Query.Encode(),
+			}
 
-		s.closeFn = func() {
-			tokenStore.Close()
-		}
-	} else if s.PostgresUrl != "" {
-		pgxConnConfig, _ := pgx.ParseURI(s.PostgresUrl)
-		pgxConn, _ := pgx.Connect(pgxConnConfig)
+			tokenStore := mysql.NewDefaultStore(
+				mysql.NewConfig(url.String()), // e.g. "root:123456@tcp(127.0.0.1:3306)/myapp_test?charset=utf8"
+			)
+			s.manager.MapTokenStorage(tokenStore)
+			s.clientStore = store.NewClientStore()
+			s.manager.MapClientStorage(s.clientStore)
 
-		adapter := pgxadapter.NewConn(pgxConn)
-		tokenStore, _ := pg.NewTokenStore(adapter, pg.WithTokenStoreGCInterval(time.Minute))
+			s.closeFn = func() {
+				tokenStore.Close()
+			}
+		} else if config.Scheme == "postgres" {
+			url := url.URL{
+				Scheme: config.Scheme,
+				Path: config.Path,
+				Host: config.Host,
+				User: url.UserPassword(config.Username, *config.Password),
+				RawQuery: config.Query.Encode(),
+			}
 
-		clientStore, _ := pg.NewClientStore(adapter)
+			pgxConnConfig, _ := pgx.ParseURI(url.String())
+			pgxConn, _ := pgx.Connect(pgxConnConfig)
 
-		s.manager.MapTokenStorage(tokenStore)
-		s.manager.MapClientStorage(clientStore)
+			adapter := pgxadapter.NewConn(pgxConn)
+			tokenStore, _ := pg.NewTokenStore(adapter, pg.WithTokenStoreGCInterval(time.Minute))
 
-		s.closeFn = func() {
-			_ = tokenStore.Close() // TODO: ERROR
+			clientStore, _ := pg.NewClientStore(adapter)
+
+			s.manager.MapTokenStorage(tokenStore)
+			s.manager.MapClientStorage(clientStore)
+
+			s.closeFn = func() {
+				_ = tokenStore.Close() // TODO: ERROR
+			}
+		} else {
+			s.manager.MustTokenStorage(store.NewMemoryTokenStore())
+			s.clientStore = store.NewClientStore()
+			s.manager.MapClientStorage(s.clientStore)
 		}
 	} else {
 		s.manager.MustTokenStorage(store.NewMemoryTokenStore())
