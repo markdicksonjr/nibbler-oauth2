@@ -106,10 +106,6 @@ func (s *Extension) Init(app *nibbler.Application) error {
 		log.Println("Response Error:", re.Error.Error())
 	})
 
-	// TODO: cancelable context, err handled
-	go func() {
-		http.ListenAndServe(":9096", nil)
-	}()
 	return nil
 }
 
@@ -122,20 +118,20 @@ func (s *Extension) Destroy(app *nibbler.Application) error {
 
 func (s *Extension) AddRoutes(app *nibbler.Application) error {
 
-	http.HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
+	app.GetRouter().HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
 		err := s.server.HandleAuthorizeRequest(w, r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 	})
 
-	http.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+	app.GetRouter().HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.server.HandleTokenRequest(w, r); err != nil {
 			app.GetLogger().Error(err.Error())
 		}
 	})
 
-	http.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+	app.GetRouter().HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
 		if ok, _ := s.ValidateToken(r.URL.Query().Get("token")); ok {
 			nibbler.Write200Json(w, "{\"result\":1}")
 			return
