@@ -1,6 +1,7 @@
 package nibbler_oauth2
 
 import (
+	"errors"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx"
 	"github.com/markdicksonjr/nibbler"
@@ -8,7 +9,7 @@ import (
 	pg "github.com/vgarvardt/go-oauth2-pg"
 	"github.com/vgarvardt/go-pg-adapter/pgxadapter"
 	"gopkg.in/go-oauth2/mysql.v3"
-	"gopkg.in/oauth2.v3/errors"
+	v3err "gopkg.in/oauth2.v3/errors"
 	"gopkg.in/oauth2.v3/manage"
 	"gopkg.in/oauth2.v3/models"
 	"gopkg.in/oauth2.v3/server"
@@ -23,12 +24,13 @@ import (
 type Extension struct {
 	nibbler.Extension
 
-	SqlExtension *sql.Extension // optional - falls back to mem if not provided
-	app         *nibbler.Application
-	clientStore *store.ClientStore
-	manager     *manage.Manager
-	server      *server.Server
-	closeFn 	func()
+	SqlExtension  *sql.Extension // optional - falls back to mem if not provided
+	app           *nibbler.Application
+	clientStore   *store.ClientStore
+	pgClientStore *pg.ClientStore
+	manager       *manage.Manager
+	server        *server.Server
+	closeFn       func()
 }
 
 // todo: ensure stores close
@@ -40,10 +42,10 @@ func (s *Extension) Init(app *nibbler.Application) error {
 		config := s.SqlExtension.GetConfiguration()
 		if config.Scheme == "mysql" {
 			url := url.URL{
-				Scheme: config.Scheme,
-				Path: config.Path,
-				Host: config.Host,
-				User: url.UserPassword(config.Username, *config.Password),
+				Scheme:   config.Scheme,
+				Path:     config.Path,
+				Host:     config.Host,
+				User:     url.UserPassword(config.Username, *config.Password),
 				RawQuery: config.Query.Encode(),
 			}
 
@@ -59,10 +61,10 @@ func (s *Extension) Init(app *nibbler.Application) error {
 			}
 		} else if config.Scheme == "postgres" {
 			url := url.URL{
-				Scheme: config.Scheme,
-				Path: config.Path,
-				Host: config.Host,
-				User: url.UserPassword(config.Username, *config.Password),
+				Scheme:   config.Scheme,
+				Path:     config.Path,
+				Host:     config.Host,
+				User:     url.UserPassword(config.Username, *config.Password),
 				RawQuery: config.Query.Encode(),
 			}
 
@@ -72,10 +74,10 @@ func (s *Extension) Init(app *nibbler.Application) error {
 			adapter := pgxadapter.NewConn(pgxConn)
 			tokenStore, _ := pg.NewTokenStore(adapter, pg.WithTokenStoreGCInterval(time.Minute))
 
-			clientStore, _ := pg.NewClientStore(adapter)
+			s.pgClientStore, _ = pg.NewClientStore(adapter)
 
 			s.manager.MapTokenStorage(tokenStore)
-			s.manager.MapClientStorage(clientStore)
+			s.manager.MapClientStorage(s.pgClientStore)
 
 			s.closeFn = func() {
 				_ = tokenStore.Close() // TODO: ERROR
@@ -96,12 +98,12 @@ func (s *Extension) Init(app *nibbler.Application) error {
 	s.server.SetAllowGetAccessRequest(true)
 	s.server.SetClientInfoHandler(server.ClientFormHandler)
 
-	s.server.SetInternalErrorHandler(func(err error) (re *errors.Response) {
+	s.server.SetInternalErrorHandler(func(err error) (re *v3err.Response) {
 		log.Println("Internal Error:", err.Error())
 		return
 	})
 
-	s.server.SetResponseErrorHandler(func(re *errors.Response) {
+	s.server.SetResponseErrorHandler(func(re *v3err.Response) {
 		log.Println("Response Error:", re.Error.Error())
 	})
 
@@ -179,5 +181,11 @@ func (s *Extension) ValidateToken(token string) (bool, error) {
 }
 
 func (s *Extension) SetClientInfo(id string, client models.Client) error {
-	return s.clientStore.Set(id, &client)
+	if s.clientStore != nil {
+		return s.clientStore.Set(id, &client)
+	} else if s.pgClientStore != nil {
+		return s.pgClientStore.Create(&client)
+	} else {
+		return errors.New("no client store was allocated for OAuth2 extension")
+	}
 }
