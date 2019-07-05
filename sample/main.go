@@ -17,13 +17,6 @@ func main() {
 
 	// add a test client
 	oauth2Extension := nibbler_oauth2.Extension{}
-	if err := oauth2Extension.SetClientInfo("000000", models.Client{
-		ID:     "000000",
-		Secret: "999999",
-		Domain: "http://localhost",
-	}); err != nil {
-		log.Fatal(err)
-	}
 
 	// initialize the application, provide config, logger, extensions
 	appContext := nibbler.Application{}
@@ -31,6 +24,14 @@ func main() {
 		&oauth2Extension,
 	}); err != nil {
 		log.Fatal(err.Error())
+	}
+
+	if err := oauth2Extension.SetClientInfo("000000", models.Client{
+		ID:     "000000",
+		Secret: "999999",
+		Domain: "http://localhost",
+	}); err != nil {
+		log.Fatal(err)
 	}
 
 	// start the app

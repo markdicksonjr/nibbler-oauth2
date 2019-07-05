@@ -1,7 +1,9 @@
 package nibbler_oauth2
 
 import (
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/markdicksonjr/nibbler"
+	"gopkg.in/go-oauth2/mysql.v3"
 	"gopkg.in/oauth2.v3/errors"
 	"gopkg.in/oauth2.v3/manage"
 	"gopkg.in/oauth2.v3/models"
@@ -15,6 +17,7 @@ import (
 type Extension struct {
 	nibbler.Extension
 
+	SqlUrl      string // optional - falls back to mem if not provided
 	app         *nibbler.Application
 	clientStore *store.ClientStore
 	manager     *manage.Manager
@@ -25,8 +28,14 @@ func (s *Extension) Init(app *nibbler.Application) error {
 	s.app = app
 	s.manager = manage.NewDefaultManager()
 
-	// token memory store
-	s.manager.MustTokenStorage(store.NewMemoryTokenStore())
+	if s.SqlUrl != "" {
+		s.manager.MapTokenStorage(mysql.NewDefaultStore(
+			mysql.NewConfig(s.SqlUrl), // e.g. "root:123456@tcp(127.0.0.1:3306)/myapp_test?charset=utf8"
+		))
+	} else {
+		// token memory store
+		s.manager.MustTokenStorage(store.NewMemoryTokenStore())
+	}
 
 	// client memory store (TODO: allow configuration)
 	s.clientStore = store.NewClientStore()
