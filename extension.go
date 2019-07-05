@@ -5,7 +5,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx"
 	"github.com/markdicksonjr/nibbler"
-	"github.com/markdicksonjr/nibbler/database/sql"
+	sql "github.com/markdicksonjr/nibbler-sql"
 	pg "github.com/vgarvardt/go-oauth2-pg"
 	"github.com/vgarvardt/go-pg-adapter/pgxadapter"
 	"gopkg.in/go-oauth2/mysql.v3"
