@@ -33,7 +33,6 @@ type Extension struct {
 	closeFn       func()
 }
 
-// todo: ensure stores close
 func (s *Extension) Init(app *nibbler.Application) error {
 	s.app = app
 	s.manager = manage.NewDefaultManager()
@@ -176,7 +175,7 @@ func (s *Extension) ValidateToken(token string) (bool, error) {
 	if info, err := s.manager.LoadAccessToken(token); err != nil {
 		return false, err
 	} else {
-		return info != nil && info.GetCodeExpiresIn().Seconds() > 0, nil // todo: additional checks?
+		return info != nil && info.GetAccessExpiresIn().Seconds() > 0, nil // todo: additional checks?
 	}
 }
 
