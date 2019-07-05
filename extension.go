@@ -179,6 +179,16 @@ func (s *Extension) ValidateToken(token string) (bool, error) {
 	}
 }
 
+func (s *Extension) GetClientIdByToken(token string) (string, error) {
+	if info, err := s.manager.LoadAccessToken(token); err != nil {
+		return "", err
+	} else if info == nil {
+		return "", nil
+	} else {
+		return info.GetClientID(), nil
+	}
+}
+
 func (s *Extension) SetClientInfo(id string, client models.Client) error {
 	if s.clientStore != nil {
 		return s.clientStore.Set(id, &client)
