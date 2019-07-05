@@ -2,7 +2,10 @@ package nibbler_oauth2
 
 import (
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx"
 	"github.com/markdicksonjr/nibbler"
+	pg "github.com/vgarvardt/go-oauth2-pg"
+	"github.com/vgarvardt/go-pg-adapter/pgxadapter"
 	"gopkg.in/go-oauth2/mysql.v3"
 	"gopkg.in/oauth2.v3/errors"
 	"gopkg.in/oauth2.v3/manage"
@@ -12,34 +15,59 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type Extension struct {
 	nibbler.Extension
 
 	SqlUrl      string // optional - falls back to mem if not provided
+	PostgresUrl string // TODO
 	app         *nibbler.Application
 	clientStore *store.ClientStore
 	manager     *manage.Manager
 	server      *server.Server
+	closeFn 	func()
 }
 
+// todo: ensure stores close
 func (s *Extension) Init(app *nibbler.Application) error {
 	s.app = app
 	s.manager = manage.NewDefaultManager()
 
 	if s.SqlUrl != "" {
-		s.manager.MapTokenStorage(mysql.NewDefaultStore(
+		tokenStore := mysql.NewDefaultStore(
 			mysql.NewConfig(s.SqlUrl), // e.g. "root:123456@tcp(127.0.0.1:3306)/myapp_test?charset=utf8"
-		))
+		)
+		s.manager.MapTokenStorage(tokenStore)
+		s.clientStore = store.NewClientStore()
+		s.manager.MapClientStorage(s.clientStore)
+
+		s.closeFn = func() {
+			tokenStore.Close()
+		}
+	} else if s.PostgresUrl != "" {
+		pgxConnConfig, _ := pgx.ParseURI(s.PostgresUrl)
+		pgxConn, _ := pgx.Connect(pgxConnConfig)
+
+		adapter := pgxadapter.NewConn(pgxConn)
+		tokenStore, _ := pg.NewTokenStore(adapter, pg.WithTokenStoreGCInterval(time.Minute))
+
+		clientStore, _ := pg.NewClientStore(adapter)
+
+		s.manager.MapTokenStorage(tokenStore)
+		s.manager.MapClientStorage(clientStore)
+
+		s.closeFn = func() {
+			_ = tokenStore.Close() // TODO: ERROR
+		}
 	} else {
-		// token memory store
 		s.manager.MustTokenStorage(store.NewMemoryTokenStore())
+		s.clientStore = store.NewClientStore()
+		s.manager.MapClientStorage(s.clientStore)
 	}
 
 	// client memory store (TODO: allow configuration)
-	s.clientStore = store.NewClientStore()
-	s.manager.MapClientStorage(s.clientStore)
 	s.server = server.NewDefaultServer(s.manager)
 	s.server.SetAllowGetAccessRequest(true)
 	s.server.SetClientInfoHandler(server.ClientFormHandler)
@@ -61,6 +89,9 @@ func (s *Extension) Init(app *nibbler.Application) error {
 }
 
 func (s *Extension) Destroy(app *nibbler.Application) error {
+	if s.closeFn != nil {
+		s.closeFn()
+	}
 	return nil
 }
 
