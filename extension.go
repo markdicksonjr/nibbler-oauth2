@@ -4,8 +4,10 @@ import (
 	"errors"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx"
+	es "github.com/markdicksonjr/go-oauth2-es"
 	"github.com/markdicksonjr/nibbler"
 	sql "github.com/markdicksonjr/nibbler-sql"
+	"github.com/olivere/elastic/v7"
 	pg "github.com/vgarvardt/go-oauth2-pg"
 	"github.com/vgarvardt/go-pg-adapter/pgxadapter"
 	"gopkg.in/go-oauth2/mysql.v3"
@@ -25,12 +27,17 @@ type Extension struct {
 	nibbler.Extension
 
 	SqlExtension  *sql.Extension // optional - falls back to mem if not provided
+	ElasticClient *elastic.Client
+
 	app           *nibbler.Application
-	clientStore   *store.ClientStore
-	pgClientStore *pg.ClientStore
 	manager       *manage.Manager
 	server        *server.Server
 	closeFn       func()
+
+	// client stores
+	clientStore   *store.ClientStore
+	esClientStore *es.ClientStore
+	pgClientStore *pg.ClientStore
 }
 
 func (s *Extension) Init(app *nibbler.Application) error {
@@ -85,6 +92,21 @@ func (s *Extension) Init(app *nibbler.Application) error {
 			s.manager.MustTokenStorage(store.NewMemoryTokenStore())
 			s.clientStore = store.NewClientStore()
 			s.manager.MapClientStorage(s.clientStore)
+		}
+	} else if s.ElasticClient != nil {
+		tokenStore, err := es.NewTokenStore(s.ElasticClient) // TODO: OPTIONS?
+		if err != nil {
+			return err
+		}
+		s.esClientStore, err = es.NewClientStore(s.ElasticClient) // TODO: OPTIONS?
+		if err != nil {
+			return err
+		}
+		s.manager.MapTokenStorage(tokenStore)
+		s.manager.MapClientStorage(s.esClientStore)
+
+		s.closeFn = func() {
+			_ = tokenStore.Close() // TODO: ERROR
 		}
 	} else {
 		s.manager.MustTokenStorage(store.NewMemoryTokenStore())
@@ -190,6 +212,8 @@ func (s *Extension) SetClientInfo(id string, client models.Client) error {
 		return s.clientStore.Set(id, &client)
 	} else if s.pgClientStore != nil {
 		return s.pgClientStore.Create(&client)
+	} else if s.esClientStore != nil {
+		return s.esClientStore.Create(&client)
 	} else {
 		return errors.New("no client store was allocated for OAuth2 extension")
 	}
