@@ -6,8 +6,8 @@ import (
 	"github.com/jackc/pgx"
 	es "github.com/markdicksonjr/go-oauth2-es"
 	"github.com/markdicksonjr/nibbler"
+	nes "github.com/markdicksonjr/nibbler-elasticsearch"
 	sql "github.com/markdicksonjr/nibbler-sql"
-	"github.com/olivere/elastic/v7"
 	pg "github.com/vgarvardt/go-oauth2-pg"
 	"github.com/vgarvardt/go-pg-adapter/pgxadapter"
 	"gopkg.in/go-oauth2/mysql.v3"
@@ -26,13 +26,13 @@ import (
 type Extension struct {
 	nibbler.Extension
 
-	SqlExtension  *sql.Extension // optional - falls back to mem if not provided
-	ElasticClient *elastic.Client
+	SqlExtension     *sql.Extension // optional - falls back to mem if not provided
+	ElasticExtension *nes.Extension // optional - falls back to mem if not provided
 
-	app           *nibbler.Application
-	manager       *manage.Manager
-	server        *server.Server
-	closeFn       func()
+	app     *nibbler.Application
+	manager *manage.Manager
+	server  *server.Server
+	closeFn func()
 
 	// client stores
 	clientStore   *store.ClientStore
@@ -93,12 +93,12 @@ func (s *Extension) Init(app *nibbler.Application) error {
 			s.clientStore = store.NewClientStore()
 			s.manager.MapClientStorage(s.clientStore)
 		}
-	} else if s.ElasticClient != nil {
-		tokenStore, err := es.NewTokenStore(s.ElasticClient) // TODO: OPTIONS?
+	} else if s.ElasticExtension != nil {
+		tokenStore, err := es.NewTokenStore(s.ElasticExtension.Client) // TODO: OPTIONS?
 		if err != nil {
 			return err
 		}
-		s.esClientStore, err = es.NewClientStore(s.ElasticClient) // TODO: OPTIONS?
+		s.esClientStore, err = es.NewClientStore(s.ElasticExtension.Client) // TODO: OPTIONS?
 		if err != nil {
 			return err
 		}
