@@ -7,8 +7,8 @@ require (
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/jackc/pgx v3.5.0+incompatible
 	github.com/markdicksonjr/go-oauth2-es v0.0.0-20190710165556-756dae83a91f
-	github.com/markdicksonjr/nibbler v0.11.0
-	github.com/markdicksonjr/nibbler-elasticsearch v0.0.2
+	github.com/markdicksonjr/nibbler v0.13.0
+	github.com/markdicksonjr/nibbler-elasticsearch v0.0.3
 	github.com/markdicksonjr/nibbler-sql v0.0.2
 	github.com/olivere/elastic/v7 v7.0.4
 	github.com/vgarvardt/go-oauth2-pg v0.0.0-20190226204934-2d810489d985

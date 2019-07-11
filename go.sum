@@ -231,8 +231,12 @@ github.com/markdicksonjr/go-oauth2-es v0.0.0-20190710165556-756dae83a91f/go.mod 
 github.com/markdicksonjr/nibbler v0.10.0/go.mod h1:FOLgnr5xQGXqRKWWxqYJmZ3553H69UNRTeEPa5qm31Y=
 github.com/markdicksonjr/nibbler v0.11.0 h1:va//AV92EOcNyuBl4HqBNQJxn2irbzg9itcIIG8i1wM=
 github.com/markdicksonjr/nibbler v0.11.0/go.mod h1:GqKXOuG38V3mRTJxaVmYI2ryCpmQYX9BdyiqtpjtLKs=
+github.com/markdicksonjr/nibbler v0.13.0 h1:ksCv/WLNi1MoCarUhraZw0D9v8n6x7QoDszYr6G8+8M=
+github.com/markdicksonjr/nibbler v0.13.0/go.mod h1:wiNALg8wMCjyO06aMYdPBQbTBicU/DwODB4W/F1hU1k=
 github.com/markdicksonjr/nibbler-elasticsearch v0.0.2 h1:Z0gn/6X7Kne5oywCnf9YDn7kVnC9xSypqHowianYrZc=
 github.com/markdicksonjr/nibbler-elasticsearch v0.0.2/go.mod h1:8cJDHRVv8deYf+bA3+1/0/OgaBB8Iu/Lf2CKsujYLFI=
+github.com/markdicksonjr/nibbler-elasticsearch v0.0.3 h1:izlu2yZURPtG1rH2f+wFJ4T6n8KN/qXjvTWiVBxBSZc=
+github.com/markdicksonjr/nibbler-elasticsearch v0.0.3/go.mod h1:8cJDHRVv8deYf+bA3+1/0/OgaBB8Iu/Lf2CKsujYLFI=
 github.com/markdicksonjr/nibbler-sql v0.0.2 h1:9iKZxARDjZ+0x/lWyXX+ZEubb+1G9LSexZeOkLzBNM8=
 github.com/markdicksonjr/nibbler-sql v0.0.2/go.mod h1:36d4VVd4XTqxQEbUgNS9TsUDrjabUK2vKd3uNbIIPpY=
 github.com/marten-seemann/qtls v0.2.3/go.mod h1:xzjG7avBwGGbdZ8dTGxlBnLArsVKLvwmjgmPuiQEcYk=
