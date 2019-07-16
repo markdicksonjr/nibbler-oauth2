@@ -6,7 +6,7 @@ require (
 	github.com/go-gorp/gorp v2.0.0+incompatible // indirect
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/jackc/pgx v3.5.0+incompatible
-	github.com/markdicksonjr/go-oauth2-es v0.0.0-20190716231230-52d58fafae2f
+	github.com/markdicksonjr/go-oauth2-es v0.0.0-20190716233216-9bc8277608eb
 	github.com/markdicksonjr/nibbler v0.13.0
 	github.com/markdicksonjr/nibbler-elasticsearch v0.0.3
 	github.com/markdicksonjr/nibbler-sql v0.0.2
