@@ -7,7 +7,26 @@ import (
 	"github.com/olivere/elastic/v7"
 	"gopkg.in/oauth2.v3/models"
 	"log"
+	"net/http"
 )
+
+type SampleExtension struct {
+	nibbler.NoOpExtension
+
+	OAuth2Extension *nibbler_oauth2.Extension
+}
+
+func (s *SampleExtension) AddRoutes(app *nibbler.Application) error {
+	app.GetRouter().HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+		if ok, _ := s.OAuth2Extension.ValidateToken(r.URL.Query().Get("token")); ok {
+			nibbler.Write200Json(w, "{\"result\":1}")
+			return
+		}
+		http.Error(w, "not valid", http.StatusBadRequest)
+	})
+
+	return nil
+}
 
 func main() {
 
@@ -31,6 +50,9 @@ func main() {
 	if err = appContext.Init(config, nibbler.DefaultLogger{}, []nibbler.Extension{
 		oauth2Extension.ElasticExtension,
 		&oauth2Extension,
+		&SampleExtension{
+			OAuth2Extension: &oauth2Extension,
+		},
 	}); err != nil {
 		log.Fatal(err.Error())
 	}

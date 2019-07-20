@@ -29,9 +29,11 @@ type Extension struct {
 	SqlExtension     *sql.Extension // optional - falls back to mem if not provided
 	ElasticExtension *nes.Extension // optional - falls back to mem if not provided
 
+	// expose the server and manager in case users want to customize at stuff at their own risk
+	Manager *manage.Manager
+	Server  *server.Server
+
 	app     *nibbler.Application
-	manager *manage.Manager
-	server  *server.Server
 	closeFn func()
 
 	// client stores
@@ -42,7 +44,7 @@ type Extension struct {
 
 func (s *Extension) Init(app *nibbler.Application) error {
 	s.app = app
-	s.manager = manage.NewDefaultManager()
+	s.Manager = manage.NewDefaultManager()
 
 	if s.SqlExtension != nil {
 		config := s.SqlExtension.GetConfiguration()
@@ -58,9 +60,9 @@ func (s *Extension) Init(app *nibbler.Application) error {
 			tokenStore := mysql.NewDefaultStore(
 				mysql.NewConfig(url.String()), // e.g. "root:123456@tcp(127.0.0.1:3306)/myapp_test?charset=utf8"
 			)
-			s.manager.MapTokenStorage(tokenStore)
+			s.Manager.MapTokenStorage(tokenStore)
 			s.clientStore = store.NewClientStore()
-			s.manager.MapClientStorage(s.clientStore)
+			s.Manager.MapClientStorage(s.clientStore)
 
 			s.closeFn = func() {
 				tokenStore.Close()
@@ -82,16 +84,16 @@ func (s *Extension) Init(app *nibbler.Application) error {
 
 			s.pgClientStore, _ = pg.NewClientStore(adapter)
 
-			s.manager.MapTokenStorage(tokenStore)
-			s.manager.MapClientStorage(s.pgClientStore)
+			s.Manager.MapTokenStorage(tokenStore)
+			s.Manager.MapClientStorage(s.pgClientStore)
 
 			s.closeFn = func() {
 				_ = tokenStore.Close() // TODO: ERROR
 			}
 		} else {
-			s.manager.MustTokenStorage(store.NewMemoryTokenStore())
+			s.Manager.MustTokenStorage(store.NewMemoryTokenStore())
 			s.clientStore = store.NewClientStore()
-			s.manager.MapClientStorage(s.clientStore)
+			s.Manager.MapClientStorage(s.clientStore)
 		}
 	} else if s.ElasticExtension != nil {
 		tokenStore, err := es.NewTokenStore(s.ElasticExtension.Client) // TODO: OPTIONS?
@@ -102,29 +104,29 @@ func (s *Extension) Init(app *nibbler.Application) error {
 		if err != nil {
 			return err
 		}
-		s.manager.MapTokenStorage(tokenStore)
-		s.manager.MapClientStorage(s.esClientStore)
+		s.Manager.MapTokenStorage(tokenStore)
+		s.Manager.MapClientStorage(s.esClientStore)
 
 		s.closeFn = func() {
 			_ = tokenStore.Close() // TODO: ERROR
 		}
 	} else {
-		s.manager.MustTokenStorage(store.NewMemoryTokenStore())
+		s.Manager.MustTokenStorage(store.NewMemoryTokenStore())
 		s.clientStore = store.NewClientStore()
-		s.manager.MapClientStorage(s.clientStore)
+		s.Manager.MapClientStorage(s.clientStore)
 	}
 
 	// client memory store (TODO: allow configuration)
-	s.server = server.NewDefaultServer(s.manager)
-	s.server.SetAllowGetAccessRequest(true)
-	s.server.SetClientInfoHandler(server.ClientFormHandler)
+	s.Server = server.NewDefaultServer(s.Manager)
+	s.Server.SetAllowGetAccessRequest(true)
+	s.Server.SetClientInfoHandler(server.ClientFormHandler)
 
-	s.server.SetInternalErrorHandler(func(err error) (re *v3err.Response) {
+	s.Server.SetInternalErrorHandler(func(err error) (re *v3err.Response) {
 		log.Println("Internal Error:", err.Error())
 		return
 	})
 
-	s.server.SetResponseErrorHandler(func(re *v3err.Response) {
+	s.Server.SetResponseErrorHandler(func(re *v3err.Response) {
 		log.Println("Response Error:", re.Error.Error())
 	})
 
@@ -141,25 +143,18 @@ func (s *Extension) Destroy(app *nibbler.Application) error {
 func (s *Extension) AddRoutes(app *nibbler.Application) error {
 
 	app.GetRouter().HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
-		err := s.server.HandleAuthorizeRequest(w, r)
+		err := s.Server.HandleAuthorizeRequest(w, r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 	})
 
 	app.GetRouter().HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
-		if err := s.server.HandleTokenRequest(w, r); err != nil {
+		if err := s.Server.HandleTokenRequest(w, r); err != nil {
 			app.GetLogger().Error(err.Error())
 		}
 	})
 
-	app.GetRouter().HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
-		if ok, _ := s.ValidateToken(r.URL.Query().Get("token")); ok {
-			nibbler.Write200Json(w, "{\"result\":1}")
-			return
-		}
-		http.Error(w, "not valid", http.StatusBadRequest)
-	})
 	return nil
 }
 
@@ -190,7 +185,7 @@ func (s *Extension) EnforceLoggedIn(routerFunc func(http.ResponseWriter, *http.R
 }
 
 func (s *Extension) ValidateToken(token string) (bool, error) {
-	if info, err := s.manager.LoadAccessToken(token); err != nil {
+	if info, err := s.Manager.LoadAccessToken(token); err != nil {
 		return false, err
 	} else {
 		return info != nil && info.GetAccessExpiresIn().Seconds() > 0, nil // todo: additional checks?
@@ -198,7 +193,7 @@ func (s *Extension) ValidateToken(token string) (bool, error) {
 }
 
 func (s *Extension) GetClientIdByToken(token string) (string, error) {
-	if info, err := s.manager.LoadAccessToken(token); err != nil {
+	if info, err := s.Manager.LoadAccessToken(token); err != nil {
 		return "", err
 	} else if info == nil {
 		return "", nil
