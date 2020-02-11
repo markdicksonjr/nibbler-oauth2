@@ -142,16 +142,16 @@ func (s *Extension) Destroy(app *nibbler.Application) error {
 
 func (s *Extension) AddRoutes(app *nibbler.Application) error {
 
-	app.GetRouter().HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
+	app.Router.HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
 		err := s.Server.HandleAuthorizeRequest(w, r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 	})
 
-	app.GetRouter().HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+	app.Router.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.Server.HandleTokenRequest(w, r); err != nil {
-			app.GetLogger().Error(err.Error())
+			app.Logger.Error(err.Error())
 		}
 	})
 
@@ -169,7 +169,7 @@ func (s *Extension) EnforceLoggedIn(routerFunc func(http.ResponseWriter, *http.R
 
 		valid, err := s.ValidateToken(hdrParts[1])
 		if err != nil {
-			s.app.GetLogger().Error("while enforcing oauth token, an error occurred: " + err.Error())
+			s.app.Logger.Error("while enforcing oauth token, an error occurred: " + err.Error())
 			nibbler.Write404Json(w)
 			return
 		}

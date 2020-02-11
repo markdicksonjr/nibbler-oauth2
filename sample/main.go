@@ -17,7 +17,7 @@ type SampleExtension struct {
 }
 
 func (s *SampleExtension) AddRoutes(app *nibbler.Application) error {
-	app.GetRouter().HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+	app.Router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
 		if ok, _ := s.OAuth2Extension.ValidateToken(r.URL.Query().Get("token")); ok {
 			nibbler.Write200Json(w, "{\"result\":1}")
 			return
@@ -36,7 +36,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	esClient, _ := elastic.NewClient(elastic.SetSniff(false), elastic.SetURL("http://es.dealdb.online:9200"), elastic.SetBasicAuth("elastic", "All-Duck-Direct-Advice-5"))
+	esClient, _ := elastic.NewClient(elastic.SetSniff(false), elastic.SetURL("http://somewhere.com:9200"), elastic.SetBasicAuth("elastic", ""))
 
 	// add a test client
 	oauth2Extension := nibbler_oauth2.Extension{
